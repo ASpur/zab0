@@ -86,6 +86,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if !authorized {
 		return
 	}
+	//return if not starting with '!'
+	if []byte(m.Content)[0] != byte('!') {
+		return
+	}
 
 }
 
