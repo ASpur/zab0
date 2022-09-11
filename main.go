@@ -12,8 +12,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+var config *Config
+
 func main() {
-	var config *Config = &Config{""}
+	config = &Config{}
 	_, err := os.OpenFile("./config.json", os.O_RDWR, 0644) //load config file
 	if err == nil {
 		cf, err := ioutil.ReadFile("./config.json")
@@ -26,7 +28,7 @@ func main() {
 			panic(err)
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
-		mar, _ := json.Marshal(Config{""})
+		mar, _ := json.Marshal(Config{})
 		os.WriteFile("config.json", []byte(mar), 0644)
 
 		fmt.Println("Config file not found. Created new file at run path. Please configure file and restart program.")
@@ -41,17 +43,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	discord, err := discordgo.New("Bot " + config.Token)
+	d, err := discordgo.New("Bot " + config.Token)
 
 	if err != nil {
 		panic(err)
 	}
 
-	if discord == nil {
+	if d == nil {
 		panic("Discord Is null :(")
 	}
 
-	discord.Open()
+	d.AddHandler(messageCreate)
+
+	d.Identify.Intents = discordgo.IntentsGuildMessages
+
+	d.Open()
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
@@ -60,9 +66,30 @@ func main() {
 	<-sc
 
 	// Cleanly close down the Discord session.
-	discord.Close()
+	d.Close()
+}
+
+func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Ignore all messages created by the bot itself
+	// This isn't required in this specific example but it's a good practice.
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+	//Ignore if author is not an authorized user
+	var authorized = false
+	for _, id := range config.AuthorizedUsers {
+		if id == m.Author.ID {
+			authorized = true
+			break
+		}
+	}
+	if !authorized {
+		return
+	}
+
 }
 
 type Config struct {
-	Token string
+	Token           string
+	AuthorizedUsers []string
 }
