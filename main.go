@@ -112,22 +112,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, "Command "+tokens[1]+" is not defined in config file")
 			return
 		}
-		fmt.Println("Running sub process " + tokens[1])
 
-		if proc.Single && proc.cmd != nil {
-			err := proc.cmd.Process.Signal(syscall.Signal(0))
-			fmt.Println(err)
-			if err == nil {
-				fmt.Println("already running")
-			} else if string(err.Error()) == "not supported by windows" {
-				_, err = os.FindProcess(proc.cmd.Process.Pid) //seems to print to console sometimes.
-				if err == nil {
-					fmt.Println("already running")
-					return
-				}
+		if proc.Single {
+			if singleProcRunning(&proc) {
+				s.ChannelMessageSend(m.ChannelID, "Proccess is of single type and is already running")
+				return
 			}
 		}
 
+		fmt.Println("Running sub process " + tokens[1])
 		cmd := exec.Command(proc.Command, proc.Args)
 		if proc.Single {
 			proc.cmd = cmd
@@ -154,6 +147,36 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// fmt.Println(config.Procmap[tokens[1]].cmd)
 	}
 
+}
+
+func singleProcRunning(p *Proc) bool {
+	if p == nil {
+		return false
+	}
+	if !p.Single {
+		fmt.Println("WARNING: checked not single proccess was running in singleProcRunning")
+		return false
+	}
+
+	if p.cmd == nil {
+		return false
+	}
+
+	if p.cmd.Process == nil {
+		return false
+	}
+	err := p.cmd.Process.Signal(syscall.Signal(0))
+	if err == nil {
+		return true
+	}
+	if string(err.Error()) == "not supported by windows" {
+		_, err = os.FindProcess(p.cmd.Process.Pid) //seems to print to console sometimes.
+		if err == nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 type Proc struct {
