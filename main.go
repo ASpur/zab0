@@ -129,7 +129,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if proc.Output {
 			o, err := cmd.Output()
 			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, "Error starting process")
+				s.ChannelMessageSend(m.ChannelID, err.Error())
 				fmt.Println(err)
 				return
 			}
@@ -142,9 +142,41 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				fmt.Println(err)
 			}
 		}
-		// fmt.Println("hello")
-		// config.Procmap[tokens[1]] = proc
-		// fmt.Println(config.Procmap[tokens[1]].cmd)
+
+	} else if len(tokens) == 2 && tokens[0] == "!status" {
+		proc, exists := config.Procmap[tokens[1]]
+
+		if exists {
+			if proc.Single {
+				if singleProcRunning(&proc) {
+					s.ChannelMessageSend(m.ChannelID, "Running")
+				} else {
+					s.ChannelMessageSend(m.ChannelID, "Not Running")
+				}
+			} else {
+				s.ChannelMessageSend(m.ChannelID, "no information available for non-single processes")
+			}
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "Doesn't exist")
+		}
+	} else if len(tokens) == 2 && tokens[0] == "!kill" {
+		proc, exists := config.Procmap[tokens[1]]
+		if exists {
+			if proc.Single {
+				if singleProcRunning(&proc) {
+					if err := proc.cmd.Process.Kill(); err != nil {
+						fmt.Println("error closing process ")
+						s.ChannelMessageSend(m.ChannelID, "Error closing process")
+						fmt.Println(err)
+					}
+
+				} else {
+					s.ChannelMessageSend(m.ChannelID, "was not running to begin with")
+				}
+			} else {
+				s.ChannelMessageSend(m.ChannelID, "not supported for this command")
+			}
+		}
 	}
 
 }
